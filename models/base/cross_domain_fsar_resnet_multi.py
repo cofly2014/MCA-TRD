@@ -6,19 +6,12 @@ import random
 from einops import rearrange
 import os
 import torch
-#from models.base.clip_fsar import load, tokenize
 from utils import getcombinations, EuclideanDistance, Euclidean_Distance
 import copy
 from models.base.resNet import MyResNet
-from gensim.models import Word2Vec
-import nltk
-from nltk.tokenize import word_tokenize
-from gensim.models import KeyedVectors
-from gensim.test.utils import datapath
 
 
-
-class PreNormattention_qkv(nn.Module):
+class PreNormattention_qkv(nn.Modue):
     def __init__(self, dim, fn):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
