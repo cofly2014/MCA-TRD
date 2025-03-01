@@ -262,23 +262,9 @@ class CROSS_DOMAIN_FSAR(nn.Module):
     OTAM with a CNN backbone.
     """
 
-    def __init__(self, args, cfg):
+    def __init__(self, args):
         super(CROSS_DOMAIN_FSAR, self).__init__()
         self.argss = args
-        self.args = cfg
-
-        #########################start 加载word2vec模型##########################################
-        #self.word2vec_model = KeyedVectors.load_word2vec_format(datapath("/home/guofei/gensim-data/word2vec-google-news-300/GoogleNews-vectors-negative300.bin"), binary=True)
-        #文本
-        self.class_real_train = cfg.TRAIN.CLASS_NAME  # 所有得训练样本 标签名称
-        self.class_real_test = cfg.TEST.CLASS_NAME  # 所有得测试样本 标签名称
-        # 首先利用word2vec模型将source domain的support标签，以及target domain的support标签进行编码
-
-        #self.text_features_trainS = [text_to_vector(self.class_real_train[ii], self.word2vec_model ) for ii in range(len(self.class_real_train))]
-        #self.text_features_testS = [text_to_vector(self.class_real_test[ii], self.word2vec_model) for ii in range(len(self.class_real_test))]
-        #self.text_fc = nn.Linear(300, 512)
-        ##########################end 加载word2vec模型################################
-
 
         ###################restnet backbone###########################################
         self.backbone = MyResNet(self.argss)
@@ -292,15 +278,9 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         self.scale = nn.Parameter(torch.FloatTensor(1), requires_grad=True)
         self.scale.data.fill_(1.0)
 
-        if hasattr(self.args.TRAIN, "TRANSFORMER_DEPTH") and self.args.TRAIN.TRANSFORMER_DEPTH:
-            # 主分类的时序特征提取
-            self.student_encoder = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2, depth=int(self.args.TRAIN.TRANSFORMER_DEPTH))
-            self.inner_teacher = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2, depth=int(self.args.TRAIN.TRANSFORMER_DEPTH))
-            self.decoder = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2, depth=int(self.args.TRAIN.TRANSFORMER_DEPTH))
-        else:
-            self.student_encoder = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2)
-            self.inner_teacher = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2)
-            self.decoder = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2)
+        self.student_encoder = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2, depth=int(self.argss.TRANSFORMER_DEPTH))
+        self.inner_teacher = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2, depth=int(self.argss.TRANSFORMER_DEPTH))
+        self.decoder = Transformer_v1(dim=self.mid_dim, heads=8, dim_head_k=self.mid_dim // 8, dropout_atte=0.2, depth=int(self.argss.TRANSFORMER_DEPTH))
         #########################end 时序网络定义##########################################
 
         ######################监督学习的线性分类器###########################################
@@ -366,10 +346,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
 
     def forward(self, inputs, iteration=1):  # 获得support support labels, query, support real class
         support_images, support_labels, target_images, support_real_class = inputs['support_set'], inputs['support_labels'], inputs['target_set'], inputs['real_support_labels']  # [200, 3, 224, 224] inputs["real_support_labels"]
-
-        #self.text_features_meta_trainS = torch.stack(self.text_features_trainS).cuda()
-        #self.text_features_meta_trainS = self.text_fc(self.text_features_meta_trainS)
-        #context_support = self.text_features_meta_trainS[support_real_class.long()].unsqueeze(1)  # .repeat(1, self.args.DATA.NUM_INPUT_FRAMES, 1)
         #######################################################################################################
         target_labels = inputs["target_labels"]
         target_domain_set = inputs['target_domain_set']
@@ -395,6 +371,7 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         else:
             enhanced_support_features = support_features
             enhanced_target_features = query_features
+
 
 
         support_features_g_pro, support_features_g, query_features_g = self.text_eh_temporal_transformer(enhanced_support_features, enhanced_target_features, support_labels)
@@ -438,14 +415,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         reconstruct_norm_distance_target_domain = torch.mean(reconstruct_norm_target_domain)  # 重建误差
         reconstruct_norm_distance = reconstruct_norm_distance + reconstruct_norm_distance_target_domain
         print("reconstruct_norm_distance: " + str(reconstruct_norm_distance))
-        # 预训练结束之后。进行target的无监督学习，将target的信息加入
-        #target的多正例自监督学习损失
-        target_features_comb, t_bs, t_sub_seq_num, t_sub_seq_len  = self.sub_seq_generate(target_domain_features)
-        target_features_comb_enc = self.student_encoder(target_features_comb, target_features_comb, target_features_comb)
-
-        target_self_s_loss = self.target_domain_self_supervised(target_domain_features_enc, target_features_comb_enc, t_sub_seq_num)
-
-        print("target_self_s_loss: " + str(target_self_s_loss))
 
         if self.training and iteration > self.start_cross:
         ########################################下面是global-local adapter#########################################
@@ -470,15 +439,12 @@ class CROSS_DOMAIN_FSAR(nn.Module):
                     param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
                 # 用student网络参数，动量更新outter_teacher网络
 
-
-
         return_dict = {
             'class_logits': class_logits,
             'meta_logits': cum_dist_g,
             "reconstruct_distance": reconstruct_norm_distance,
             "self_logits": self_loss,
-            "cross_logits": cross_loss,
-            "target_self_s_loss": target_self_s_loss
+            "cross_logits": cross_loss
         }  # [5， 5] , [10 64]
 
         return return_dict
@@ -550,61 +516,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
             column = max_indices % s2t_sim.shape[1] - 1
             enhanced_support_features[i][row] = target_domain_features[column]
         return 0.2*enhanced_support_features + 0.8*support_features
-
-
-
-    def target_domain_self_supervised(self, target_domain_features_enc, target_domain_features_comb, t_sub_seq_num,
-                                      temperature=0.5):
-        """
-        自监督学习函数
-
-        参数:
-        - target_domain_features_enc (torch.Tensor): 原始样本特征表示，形状为 [batch_size, num_frames, feature_dim]
-        - target_domain_features_comb (torch.Tensor): 生成的子序列特征表示，形状为 [total_subsequences, sub_seq_len, feature_dim]
-        - t_sub_seq_num (int): 每个样本对应的子序列个数
-        - temperature (float): 温度参数，用于缩放相似度
-
-        返回:
-        - loss (torch.Tensor): 自监督损失值
-        """
-        batch_size, num_frames, feature_dim = target_domain_features_enc.shape
-        total_subsequences, sub_seq_len, _ = target_domain_features_comb.shape
-
-        # 确保 target_domain_features_comb 的形状符合 [batch_size, t_sub_seq_num, sub_seq_len, feature_dim]
-        target_domain_features_comb = target_domain_features_comb.view(batch_size, t_sub_seq_num, sub_seq_len, feature_dim)
-
-        # 计算正样本的相似度
-        target_domain_features_enc_expanded = target_domain_features_enc.unsqueeze(1).expand(-1, t_sub_seq_num, -1, -1)
-        positive_sim = cos_sim(target_domain_features_enc_expanded, target_domain_features_comb)
-        #positive_sim = torch.exp(positive_sim.mean(dim=(-1, -2)) / temperature)  # 平均并缩放
-        positive_sim = (positive_sim.max(dim=2)[0].mean(dim=2) + positive_sim.max(dim=3)[0].mean(dim=2))/2
-        positive_sim = torch.exp(positive_sim/temperature)
-        # 计算与所有子序列的相似度
-        target_domain_features_enc_expanded_all = target_domain_features_enc.unsqueeze(1).expand(-1, total_subsequences,  -1, -1)
-        target_domain_features_comb_all = target_domain_features_comb.view(batch_size * t_sub_seq_num, sub_seq_len, feature_dim).unsqueeze(0).expand(batch_size, -1, -1, -1)
-        all_sim = cos_sim(target_domain_features_enc_expanded_all, target_domain_features_comb_all)
-        #all_sim = torch.exp(all_sim.mean(dim=(-1, -2)) / temperature)
-        all_sim = (all_sim.max(dim=2)[0].mean(dim=2) + all_sim.max(dim=3)[0].mean(dim=2))/2
-        all_sim = torch.exp(all_sim / temperature)
-        all_sim =all_sim.sum(dim=1)
-        # 计算负样本的相似度，排除自身相似度
-        negative_sim = cos_sim(target_domain_features_enc.unsqueeze(1), target_domain_features_enc.unsqueeze(0))
-        #negative_sim = torch.exp(negative_sim.mean(dim=(-1, -2)) / temperature)
-        negative_sim = (negative_sim.max(dim=2)[0].mean(dim=2) + negative_sim.max(dim=2)[0].mean(dim=2)) / 2
-        negative_sim_all = torch.exp(negative_sim.fill_diagonal_(0)/ temperature)  # 排除自身相似度
-        negative_sim_all = negative_sim_all.sum(dim=1)
-        # 计算损失
-        #positive_sim = positive_sim.sum(dim=1)
-        positive_sim = torch.log(positive_sim)
-
-        negative_sum = all_sim + negative_sim_all
-        negative_sum = torch.log(negative_sum)
-
-        loss = -torch.log(positive_sim / negative_sum.unsqueeze(1).repeat(1, 10)).mean()
-
-        return loss
-
-
 
 
     def student2inner_teacher(self, cum_dist_g, target_labels, support_features_comb_info, support_features_g,  support_labels, query_features_comb_info, query_features_g):
@@ -695,37 +606,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
 
         return cross_loss/q_bs, self_loss/q_bs, local_dist_g2l, local_dist_l2g
 
-    def student2outter_teacher(self, target_domain_features):
-        # 2. student和outter_teacher之间
-        ##########################################################################################################################################
-        ######*****************outter_teacher和student之间的知识差，用pseudo_loss来表示**************************########
-        # 通过student网络获得 target domain的全序列的特征
-        target_domain_features_s = self.student_encoder(target_domain_features, target_domain_features, target_domain_features)
-        # 通过一个映射层将target_domain_features_s 向 target_domain_features_t 映射
-        mapping_target_domain_features_s = self.mappingNet(target_domain_features_s.permute(0, 2, 1)).permute(0, 2, 1)
-        # 通过teacher网络学习子序列特征
-        target_domain_features_comb, _, _, _ = self.sub_seq_generate(target_domain_features)
-        target_domain_features_t = self.outer_teacher(target_domain_features_comb, target_domain_features_comb, target_domain_features_comb)  # [:,:local_query_len*select_len,:]
-        # target_domain_features_s 和 target_domain_features_t 分别连接两个分类头，让target_domain_features_s的分类概率分布向target_domain_features_t的分类概率分布靠拢
-        sequence_output = 0
-        if self.fc_norm is not None:
-            sequence_output = self.fc_norm(mapping_target_domain_features_s.mean(1))
-        else:
-            sequence_output = sequence_output[:, 0]
-        logits_student = self.classifier(sequence_output)
-        if self.fc_norm is not None:
-            sequence_output = self.fc_norm(target_domain_features_t.mean(1))
-        else:
-            sequence_output = sequence_output[:, 0]
-        logits_teacher = self.classifier(sequence_output)
-        pseudo_loss = F.kl_div((-logits_teacher).softmax(-1).log(), (-logits_student).softmax(-1).repeat_interleave(5, dim=0), reduction='none')
-        pseudo_loss = torch.sum(torch.sum(pseudo_loss, dim=1), dim=0)
-        # L2距离 同一个样本的l2距离小，不同样本的l2距离大
-        target_domain_features_t = self.mappingLinear_seq_len(target_domain_features_t.permute(0, 2, 1)).permute(0, 2, 1)
-        target_domain_features_s = target_domain_features_s.repeat_interleave(5, dim=0)
-        target_same_sample_distance = Euclidean_Distance(target_domain_features_t, target_domain_features_s)
-        return pseudo_loss, target_same_sample_distance
-
     def sub_seq_generate(self, domain_features):
         combinations = self.Subsequence_Generator()
         domain_features_comb = torch.stack([torch.index_select(domain_features, 1, each) for each in combinations], dim=1)
@@ -733,14 +613,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
 
         domain_features_comb = domain_features_comb.reshape(bs * sub_seq_num, sub_seq_len, -1)  #250, 4, 512    第一维是以序列个数作为样本个数
         return [domain_features_comb, bs, sub_seq_num, sub_seq_len]
-
-    def fusion_textimage_distance(self, cum_dists_visual, logits_per_image):
-        cum_dists_visual_soft = F.softmax((8 - cum_dists_visual) / 8., dim=1)
-        if hasattr(self.args.TRAIN, "TEXT_COFF") and self.args.TRAIN.TEXT_COFF:
-            cum_dists = -(logits_per_image.pow(self.args.TRAIN.TEXT_COFF) * cum_dists_visual_soft.pow(1.0 - self.args.TRAIN.TEXT_COFF))
-        else:
-            cum_dists = -(logits_per_image.pow(0.9) * cum_dists_visual_soft.pow(0.1))
-        return cum_dists
 
     def text_eh_temporal_transformer(self,  support_features, target_features, support_labels):
 
@@ -766,7 +638,7 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         # dists维度为 query样本数量， support类别数量，帧数，帧数
         dists = rearrange(frame_dists, '(tb ts) (sb ss) -> tb sb ts ss', tb=n_queries, sb=n_support)  # [25, 25, 8, 8]
         # calculate query -> support and support -> query  双向匹配还是单向匹配
-        if hasattr(self.args.TRAIN, "SINGLE_DIRECT") and self.args.TRAIN.SINGLE_DIRECT:
+        if self.argss.SINGLE_DIRECT:
             cum_dists = OTAM_cum_dist_v2(dists)
         else:
             cum_dists = OTAM_cum_dist_v2(dists) + OTAM_cum_dist_v2(rearrange(dists, 'tb sb ts ss -> tb sb ss ts'))

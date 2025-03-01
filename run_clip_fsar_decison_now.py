@@ -15,10 +15,7 @@ import video_reader_cross_res as  video_reader
 import random
 import logging
 
-import torch.nn.functional as F
 from models.base.cross_domain_fsar_resnet_multi import CROSS_DOMAIN_FSAR
-from util.config import Config
-
 
 def setup_logger(name, log_file, level=logging.INFO):
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
@@ -55,6 +52,8 @@ Command line parser
 
 def parse_command_line():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--TRANSFORMER_DEPTH", type=int, default=1, help="transformer depth")
+    parser.add_argument("--SINGLE_DIRECT", type=int, default=False, help="otam direction")
     # 经常需要修改
     parser.add_argument("--learning_rate", "-lr", type=float, default=0.001, help="Learning rate.")
     parser.add_argument("--tasks_per_batch", type=int, default=16, help="Number of tasks between parameter optimizations.")
@@ -95,8 +94,8 @@ def parse_command_line():
     parser.add_argument("--source_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48"], default="kinetics", help="Dataset to use.")
     parser.add_argument("--target_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48"], default="diving48", help="Dataset to use.")
 
-    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_diving48_1/", help="Directory to save checkpoint to.")
-    parser.add_argument("--test_model_path", "-m", default="./checkpoint_diving48_1/", help="Path to model to load and test.")
+    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_diving48/", help="Directory to save checkpoint to.")
+    parser.add_argument("--test_model_path", "-m", default="./checkpoint_diving48/", help="Path to model to load and test.")
 
     parser.add_argument("--resume_checkpoint_iter", type=int, default=0, help="Path to model to resume.")
     parser.add_argument("--resume_from_checkpoint", "-r", dest="resume_from_checkpoint", default=False, action="store_true", help="Restart from latest checkpoint.")
@@ -114,7 +113,8 @@ def parse_command_line():
     parser.add_argument('--start_cross', type=int, default=10000, help='the time to start meta-learning step2')  #10000
 
     parser.add_argument('--class_num', type=int, default=64, help='the number of class catetories in the training stage')
-    parser.add_argument('--aa', nargs='+', type=int, default=[1,1 ], help='1,1->l2g+g2l,  1,0->l2g, 0,1->g2l')
+    parser.add_argument('--aa', nargs='+', type=int, default=[1,0], help='1,1->l2g+g2l,  1,0->l2g, 0,1->g2l')
+    #注：aa参数固定为1,0 这里愿意图是做局部到全局的对齐 以及全局到局部的对齐,后根据实验结果发现之保留局部到全局对齐效果好一些，但是代码是通用的，所以这里固定参数，从而不需要再修正代码
 
     args = parser.parse_args()
 
@@ -216,7 +216,6 @@ class Learner:
 
     def __init__(self):
         self.args = parse_command_line()
-        self.cfg = Config(load=True)
         self.checkpoint_dir, self.logfile, self.checkpoint_path_validation, self.checkpoint_path_final = get_log_files(self.args.checkpoint_dir, self.args.resume_from_checkpoint, False)
         print_and_log(self.logfile, "Options: %s\n" % self.args)
         print_and_log(self.logfile, "Checkpoint Directory: %s\n" % self.checkpoint_dir)
@@ -261,7 +260,7 @@ class Learner:
         self.optimizer.zero_grad()
 
     def init_model(self):
-        model = CROSS_DOMAIN_FSAR(self.args, self.cfg)
+        model = CROSS_DOMAIN_FSAR(self.args)
         model = model.cuda()
         if self.args.num_gpus > 1:
             model.distribute_model()
@@ -352,7 +351,6 @@ class Learner:
         self_loss = model_dict['self_logits']
         cross_loss = model_dict['cross_logits']
         reconstruct_distance_loss = model_dict['reconstruct_distance']
-        target_self_s_loss= model_dict['target_self_s_loss']
 
 
         task_accuracy = self.accuracy_fn(meta_logits, target_labels)
@@ -371,13 +369,12 @@ class Learner:
         lambdas = self.args.lambdas
         # lambdas=[2, 1, 0.5, 0.3, 0.3, 0.5, 0.5,0]
         if iteration <= self.args.start_cross:
-            lambdas = [1, 0, 0, 0, 0, 0]
+            lambdas = [1, 0, 0, 0, 0]
         else:
-            lambdas = [1, 1, 0, 0, 0, 0]
+            lambdas = [1, 1, 0, 0, 0]
         task_loss_total = lambdas[0] * superviesed_class_loss + \
                           lambdas[1] * meta_target_loss + \
                           lambdas[2] * reconstruct_distance_loss + \
-                          lambdas[3] * target_self_s_loss +\
                           lambdas[3] * self_loss + \
                           lambdas[4] * cross_loss
 
