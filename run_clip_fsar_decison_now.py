@@ -102,7 +102,6 @@ def parse_command_line():
 
     parser.add_argument("--test_checkpoint_iter", type=int, default=14500, help="Path to model to load and test.")
     parser.add_argument("--test_model_only", type=bool, default=False, help="Only testing the model from the given checkpoint")
-
     #####################下面的是消融参数##############
     parser.add_argument("--lambdas", type=int, default=[1, 0.5, 0, 0, 0, 0], help="temporal_set")  #1是监督分类loss 2是蒸馏loss
 
@@ -113,10 +112,9 @@ def parse_command_line():
     parser.add_argument('--start_cross', type=int, default=10000, help='the time to start meta-learning step2')  #10000
 
     parser.add_argument('--class_num', type=int, default=64, help='the number of class catetories in the training stage')
-    parser.add_argument('--aa', nargs='+', type=int, default=[1,0], help='1,1->l2g+g2l,  1,0->l2g, 0,1->g2l')
-    #注：aa参数固定为1,0 这里愿意图是做局部到全局的对齐 以及全局到局部的对齐,后根据实验结果发现之保留局部到全局对齐效果好一些，但是代码是通用的，所以这里固定参数，从而不需要再修正代码
 
     args = parser.parse_args()
+
 
     # 数据集存储在不同的地方 移动硬盘，服务器，本地PC
     if args.scratch == "bc":

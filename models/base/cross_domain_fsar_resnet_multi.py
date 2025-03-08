@@ -117,8 +117,6 @@ class FeedForward(nn.Module):
 '''
 子序列生成器
 '''
-
-
 class Subsequence_Generator:
     def __init__(self, full_seq_len, sub_seq_len, sub_seq_num):
         self.full_seq_len = full_seq_len
@@ -141,7 +139,6 @@ class Subsequence_Generator:
 
 
 ####################################################################
-
 def cos_sim(x, y, epsilon=0.01):
     """
     Calculates the cosine similarity between the last dimension of two tensors.
@@ -300,8 +297,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         self.copyStudent = True
         self.start_cross = self.argss.start_cross
 
-        self.aa = self.argss.aa
-
     '''
     计算一个全序列样本，和改样本子序列之间判别概率的KL散度
     '''
@@ -309,7 +304,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
     def self_seq_loss(self, P_local, P_global, bs):
         self_loss = sum([-torch.sum(torch.mul(torch.log(P_local[index]), P_global[index])) for index in range(bs)])
         return self_loss
-
     '''
     计算一个全序列样本，和该样本所属的类，的其他子序列之间判别概率的KL散度
     '''
@@ -433,7 +427,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
                 # 用student网络参数，动量更新outter_teacher网络
 
 
-
         return_dict = {
             'class_logits': class_logits,
             'meta_logits': cum_dist_g,
@@ -514,8 +507,7 @@ class CROSS_DOMAIN_FSAR(nn.Module):
 
 
     def student2inner_teacher(self, cum_dist_g, target_labels, support_features_comb_info, support_features_g,  support_labels, query_features_comb_info, query_features_g):
-        a1 = self.aa[0]
-        a2 = self.aa[1]
+
         # student网络的souce domain中 全局query序列和support原型序列的对比概率分布
         P_global = F.softmax(cum_dist_g, dim=-1)
 
@@ -566,7 +558,10 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         self_loss_l2g = sum([-torch.sum(torch.mul(torch.log(P_local_l2g[index]), P_global[index])) for index in range(q_bs)])
         # kl12=F.kl_div((-cum_dist1).softmax(-1).log(),(-cum_dist2).softmax(-1),reduction='sum')
         # kl21=F.kl_div((-cum_dist2).softmax(-1).log(),(-cum_dist1).softmax(-1),reduction='sum')
-        self_loss =  a1*self_loss_l2g + a2*self_loss_g2l
+        #工作进行中试验了 全局对局部，效果不太好
+        # self_loss =  a1*self_loss_l2g + a2*self_loss_g2l
+        #文章中只有局部对全局
+        self_loss = self_loss_l2g
         ######################################################################################################################
 
         ######################################################################################################################
@@ -597,7 +592,11 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         cross_loss_g2l = sum([-torch.sum(torch.mul(torch.log(shuffle_P_local_g2l[index]), P_global[index])) for index in range(q_bs)])
         # 同类的其他样本的局部样本 向全局 该样本 分布概率 对齐的KL散度
         cross_loss_l2g = sum([-torch.sum(torch.mul(torch.log(shuffle_P_local_l2g[index]), P_global[index])) for index in range(q_bs)])
-        cross_loss = a1*cross_loss_l2g + a2*cross_loss_g2l
+
+        # 工作进行中试验了 全局对局部，效果不太好
+        #cross_loss = a1*cross_loss_l2g + a2*cross_loss_g2l
+        # 文章中只有局部对全局
+        cross_loss = cross_loss_l2g
 
         return cross_loss/q_bs, self_loss/q_bs, local_dist_g2l, local_dist_l2g
 
