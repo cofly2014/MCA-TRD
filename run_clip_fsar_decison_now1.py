@@ -350,7 +350,6 @@ class Learner:
         cross_loss = model_dict['cross_logits']
         reconstruct_distance_loss = model_dict['reconstruct_distance']
 
-
         task_accuracy = self.accuracy_fn(meta_logits, target_labels)
         print("-> meta task_accuracy:{}".format(task_accuracy))
         # 每个eipsode中监督学习准确度

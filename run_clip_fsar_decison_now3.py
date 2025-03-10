@@ -350,8 +350,6 @@ class Learner:
         self_loss = model_dict['self_logits']
         cross_loss = model_dict['cross_logits']
         reconstruct_distance_loss = model_dict['reconstruct_distance']
-        target_self_s_loss= model_dict['target_self_s_loss']
-
 
         task_accuracy = self.accuracy_fn(meta_logits, target_labels)
         print("-> meta task_accuracy:{}".format(task_accuracy))
