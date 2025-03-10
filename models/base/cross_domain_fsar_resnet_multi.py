@@ -10,7 +10,6 @@ from utils import getcombinations, EuclideanDistance, Euclidean_Distance
 import copy
 from models.base.resNet import MyResNet
 
-
 class PreNormattention_qkv(nn.Module):
     def __init__(self, dim, fn):
         super().__init__()
@@ -359,8 +358,10 @@ class CROSS_DOMAIN_FSAR(nn.Module):
             enhanced_support_features = support_features
             enhanced_target_features = query_features
 
-        enhanced_support_features = support_features
-        enhanced_target_features = query_features
+        #SFEM消融实验中设置,如果不用SFEM则把下面两句注释放开
+        #enhanced_support_features = support_features
+        #enhanced_target_features = query_features
+
         support_features_g_pro, support_features_g, query_features_g = self.text_eh_temporal_transformer(enhanced_support_features, enhanced_target_features, support_labels)
 
         #下面这行代码是不使用空间增强后的特征
@@ -425,7 +426,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
                 for param_q, param_k in zip(self.student_encoder.parameters(), self.inner_teacher.parameters()):
                     param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
                 # 用student网络参数，动量更新outter_teacher网络
-
 
         return_dict = {
             'class_logits': class_logits,
@@ -592,7 +592,6 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         cross_loss_g2l = sum([-torch.sum(torch.mul(torch.log(shuffle_P_local_g2l[index]), P_global[index])) for index in range(q_bs)])
         # 同类的其他样本的局部样本 向全局 该样本 分布概率 对齐的KL散度
         cross_loss_l2g = sum([-torch.sum(torch.mul(torch.log(shuffle_P_local_l2g[index]), P_global[index])) for index in range(q_bs)])
-
         # 工作进行中试验了 全局对局部，效果不太好
         #cross_loss = a1*cross_loss_l2g + a2*cross_loss_g2l
         # 文章中只有局部对全局
