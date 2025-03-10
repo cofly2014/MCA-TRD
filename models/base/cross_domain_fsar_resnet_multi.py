@@ -351,7 +351,7 @@ class CROSS_DOMAIN_FSAR(nn.Module):
         # student 网络,是核心主部件
         # 通过student网络获得source_domain 中support和query的full_sequence的特征，其中support_features_g是原型
         # 空间上进行数据增强
-        if iteration/2 == 0:
+        if iteration % 2 == 0:
             enhanced_support_features = self.enhance_source(support_features, target_domain_features)
             enhanced_target_features = self.enhance_source(query_features, target_domain_features)
         else:
