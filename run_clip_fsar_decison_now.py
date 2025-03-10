@@ -1,6 +1,6 @@
 import os
 #os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "9"
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 import torch
 import numpy as np
 import argparse
@@ -101,7 +101,7 @@ def parse_command_line():
     parser.add_argument("--resume_from_checkpoint", "-r", dest="resume_from_checkpoint", default=False, action="store_true", help="Restart from latest checkpoint.")
 
     parser.add_argument("--test_checkpoint_iter", type=int, default=14500, help="Path to model to load and test.")
-    parser.add_argument("--test_model_only", type=bool, default=False, help="Only testing the model from the given checkpoint")
+    parser.add_argument("--test_model_only", type=bool, default=True, help="Only testing the model from the given checkpoint")
     #####################下面的是消融参数##############
     parser.add_argument("--lambdas", type=int, default=[1, 0.5, 0, 0, 0, 0], help="temporal_set")  #1是监督分类loss 2是蒸馏loss
 

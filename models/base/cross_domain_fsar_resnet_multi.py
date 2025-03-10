@@ -11,7 +11,7 @@ import copy
 from models.base.resNet import MyResNet
 
 
-class PreNormattention_qkv(nn.Modue):
+class PreNormattention_qkv(nn.Module):
     def __init__(self, dim, fn):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
