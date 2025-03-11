@@ -37,17 +37,19 @@ The model accuracy here exhibits slight discrepancies from our published paper, 
 
 We use the Kinetics as the source Domain
 
-| target domain | accuracy | model                                                                       |
-|--------------:|:--------:|-----------------------------------------------------------------------------|
+| target domain | accuracy | model                                                        |
+|--------------:|:--------:|--------------------------------------------------------------|
 |      diving48 |  44.76%  | near 14500 episode https://pan.baidu.com/s/1OE8roh8sgH0nDlVpVuTwYQ?pwd=4tnh |
 |       rareAct |  53.2%   | near 12000 episode https://pan.baidu.com/s/1sRX5AZZm-VhyvwzWkqPWdA?pwd=5xrr |
-|          SSv2 |   32%    | please wait...                                                              |
-|        HMDB51 |  54.2%   | please wait...                                                              |
-|        UCF101 |  82.3%   | please wait...                                                              |
+|          SSv2 |   32%    | please wait...                                               |
+|        HMDB51 |  54.06%  | near 13500 episode https://pan.baidu.com/s/1Y4ST8Raa0PGZ_vgwvqYSHg?pwd=hbdv                                         |
+|        UCF101 |  82.3%   | please wait...                                               |
 
 
 ![img.png]( imgs/diving48_result_img.png)
 ![img.png]( imgs/rareact_result_img.png) 
+![img.png]( imgs/hmdb_result_img.png)
+
 
 
 ## Acknowledgements

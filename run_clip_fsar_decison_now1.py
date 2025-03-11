@@ -92,10 +92,10 @@ def parse_command_line():
     #####################数据集和pt保存路径#############
     #parser.add_argument("--dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf"], default="hmdb", help="Dataset to use.")
     parser.add_argument("--source_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="kinetics", help="Dataset to use.")
-    parser.add_argument("--target_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="rareAct", help="Dataset to use.")
+    parser.add_argument("--target_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="ucf", help="Dataset to use.")
 
-    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_rareAction/", help="Directory to save checkpoint to.")
-    parser.add_argument("--test_model_path", "-m", default="./checkpoint_rareAction/", help="Path to model to load and test.")
+    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_ucf/", help="Directory to save checkpoint to.")
+    parser.add_argument("--test_model_path", "-m", default="./checkpoint_ucf/", help="Path to model to load and test.")
 
     parser.add_argument("--resume_checkpoint_iter", type=int, default=0, help="Path to model to resume.")
     parser.add_argument("--resume_from_checkpoint", "-r", dest="resume_from_checkpoint", default=False, action="store_true", help="Restart from latest checkpoint.")
