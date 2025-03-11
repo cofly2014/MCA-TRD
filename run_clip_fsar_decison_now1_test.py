@@ -37,7 +37,7 @@ eval_logger = setup_logger('Evaluation_accuracy', 'runs_trms/eval_output.log')
 # setting up seeds
 manualSeed = random.randint(1, 10000)
 #manualSeed = 1888
-manualSeed = 1896
+manualSeed = 2025
 print("Random Seed: ", manualSeed)
 np.random.seed(manualSeed)
 random.seed(manualSeed)
@@ -100,8 +100,8 @@ def parse_command_line():
     parser.add_argument("--resume_checkpoint_iter", type=int, default=0, help="Path to model to resume.")
     parser.add_argument("--resume_from_checkpoint", "-r", dest="resume_from_checkpoint", default=False, action="store_true", help="Restart from latest checkpoint.")
 
-    parser.add_argument("--test_checkpoint_iter", type=int, default=14500, help="Path to model to load and test.")
-    parser.add_argument("--test_model_only", type=bool, default=False, help="Only testing the model from the given checkpoint")
+    parser.add_argument("--test_checkpoint_iter", type=int, default=11500, help="Path to model to load and test.")
+    parser.add_argument("--test_model_only", type=bool, default=True, help="Only testing the model from the given checkpoint")
 
     #####################下面的是消融参数##############
     parser.add_argument("--lambdas", type=int, default=[1, 0.5, 0, 0, 0, 0], help="temporal_set")  #1是监督分类loss 2是蒸馏loss

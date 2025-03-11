@@ -25,8 +25,7 @@ class Split():
     # 通过遍历整个数据集合，和split进行比较之后，填充完    self.gt_a_list = [] 以及 self.videos = [] 两个list
     def add_vid(self, paths, gt_a):
         self.videos.append(paths)  # paths对应某个类下的所有images的路径， 所以videos，是一个list的list
-        self.gt_a_list.append(
-            gt_a)  # gt_a某个类的下标索引,所以 gt_a_list 应该是 [ 1,1,1,1,1,1,1,1,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7]
+        self.gt_a_list.append(gt_a)  # gt_a某个类的下标索引,所以 gt_a_list 应该是 [ 1,1,1,1,1,1,1,1,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7]
 
     # label是动作类标号，idx为动作对应的视频标号
     def get_rand_vid(self, label, idx=-1):
@@ -189,7 +188,9 @@ class VideoDataset(torch.utils.data.Dataset):
                 video_folders = video_folders[0:1]
             # 遍历某个动作文件夹下面的 每个视频文件夹，用名字在split文件中进行检索，如果存在则将该视频文件夹归档，作为小样本任务的support或query set
             for video_folder in video_folders:
-                c = self.get_source_train_db(video_folder)  #去list的内容去查询看有没有
+                #c = self.get_source_train_db(video_folder)  #去list的内容去查询看有没有
+                class_video_folders = class_folder + '/' + video_folder
+                c = self.get_source_train_db(class_video_folders)
                 if c == None:
                     continue
                 imgs = os.listdir(os.path.join(self.data_dir, class_folder, video_folder))
@@ -202,7 +203,7 @@ class VideoDataset(torch.utils.data.Dataset):
                 c.add_vid(paths, class_id)  # 拿到某一个类别中 某一个video的所有帧图片 路径之后，调用c.add_vid进行帧选择。
         #TODO: source domain中，不涉及meta-testing阶段，所以理论上应该没有test_split配置文件。 这里需要修改
         print("source domain loaded {}".format(self.data_dir))
-        print("train: {}".format(len(self.train_split)))
+        print("train: {}, source domain samples in the traning stage".format(len(self.train_split)))
 
     #读取目标域无标签数据
     def read_dir_target(self):
@@ -222,7 +223,8 @@ class VideoDataset(torch.utils.data.Dataset):
                 video_folders = video_folders[0:1]
             # 遍历某个动作文件夹下面的 每个视频文件夹，用名字在split文件中进行检索，如果存在则将该视频文件夹归档，作为小样本任务的support或query set
             for video_folder in video_folders:
-                c = self.get_train_or_test_db_target(video_folder)
+                class_video_folders = class_folder + '/' + video_folder
+                c = self.get_train_or_test_db_target(class_video_folders)
                 if c == None:
                     continue
                 imgs = os.listdir(os.path.join(self.target_data_dir, class_folder, video_folder))
@@ -235,7 +237,7 @@ class VideoDataset(torch.utils.data.Dataset):
                 c.add_vid(paths, class_id)  # 拿到某一个类别中 某一个video的所有帧图片 路径之后，调用c.add_vid进行帧选择。
         #从真实文件中遍历，如果属于trainlist则进入train的容器，如果属于testlist则进入test的容器
         print("target domain: loaded {}".format(self.target_data_dir))
-        print("train: {}, test: {}".format(len(self.target_train_split), len(self.target_test_split)))
+        print("train: {} used as unlabeled target for training in the training stage. test: {} for test in the testing stage".format(len(self.target_train_split), len(self.target_test_split)))
 
 
 
@@ -253,11 +255,7 @@ class VideoDataset(torch.utils.data.Dataset):
                 # data = [x.replace(' ', '_').lower() for x in data]  #weaving basket--> weaving_basket
                 data = [x.replace(' ', '_') for x in data]  # weaving basket--> weaving_basket
                 data = [x.strip().split(" ")[0] for x in data]
-                data = [os.path.splitext(os.path.split(x)[1])[0] for x in data]
-                # comment by guofei why???
-                # if "kinetics" in self.args.path:
-                #    data = [x[0:11] for x in data]
-
+                #data = [os.path.splitext(os.path.split(x)[1])[0] for x in data]
                 selected_files.extend(data)
             lists[name] = selected_files
         self.source_train_lists = lists
@@ -272,15 +270,8 @@ class VideoDataset(torch.utils.data.Dataset):
             with open(f, "r") as fid:
                 data = fid.readlines()
                 # data = [x.replace(' ', '_').lower() for x in data]  #weaving basket--> weaving_basket
-
                 data = [x.replace(' ', '_') for x in data]  # weaving basket--> weaving_basket
                 data = [x.strip().split(" ")[0] for x in data]
-
-                data = [os.path.splitext(os.path.split(x)[1])[0] for x in data]
-                # comment by guofei why???
-                # if "kinetics" in self.args.path:
-                #    data = [x[0:11] for x in data]
-
                 selected_files.extend(data)
             lists[name] = selected_files
         self.train_test_lists_target = lists
@@ -377,6 +368,8 @@ class VideoDataset(torch.utils.data.Dataset):
         ###########################################################################################
         target_domain_label, target_domain_set = self.build_target_trainingset()
 
+
+
         return {
                 "support_set": support_set,
                 "support_labels": support_labels,
@@ -449,6 +442,8 @@ class VideoDataset(torch.utils.data.Dataset):
             # 计算出选出的类中的视频数量，gt_a_list中值和bc一致的数量，有几个就说明有几个视频的类为bc
             n_total = c.get_num_videos_for_class(bc)
             # 选出shot 和query
+            if n_total < self.args.shot + n_queries:
+                continue
             idxs = random.sample([i for i in range(n_total)], self.args.shot + n_queries)  # 选出support 和query的样本编号
             # idx为选出来的视频标号，为某一个类下的标号，而vid_id是这个视频的整体的标号
             for idx in idxs[0:self.args.shot]:
