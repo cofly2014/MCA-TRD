@@ -1,6 +1,6 @@
 import os
 #os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "9"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 import torch
 import numpy as np
 import argparse
@@ -58,7 +58,7 @@ def parse_command_line():
     parser.add_argument("--learning_rate", "-lr", type=float, default=0.001, help="Learning rate.")
     parser.add_argument("--tasks_per_batch", type=int, default=16, help="Number of tasks between parameter optimizations.")
     # 经常需要修改
-    parser.add_argument("--training_iterations", "-i", type=int, default=22020, help="Number of meta-training iterations.")
+    parser.add_argument("--training_iterations", "-i", type=int, default=120020, help="Number of meta-training iterations.")
     # 经常需要修改
     parser.add_argument("--num_test_tasks", type=int, default=1000, help="number of random tasks to test on.")
     parser.add_argument('--test_iters', nargs='+', type=int, default=[20000], help='iterations to test at. Default is for ssv2 otam split.')
@@ -92,16 +92,16 @@ def parse_command_line():
     #####################数据集和pt保存路径#############
     #parser.add_argument("--dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf"], default="hmdb", help="Dataset to use.")
     parser.add_argument("--source_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="kinetics", help="Dataset to use.")
-    parser.add_argument("--target_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="ucf", help="Dataset to use.")
+    parser.add_argument("--target_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="ssv2", help="Dataset to use.")
 
-    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_ucf/", help="Directory to save checkpoint to.")
-    parser.add_argument("--test_model_path", "-m", default="./checkpoint_ucf/", help="Path to model to load and test.")
+    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_ssv2/", help="Directory to save checkpoint to.")
+    parser.add_argument("--test_model_path", "-m", default="./checkpoint_ssv2/", help="Path to model to load and test.")
 
     parser.add_argument("--resume_checkpoint_iter", type=int, default=0, help="Path to model to resume.")
     parser.add_argument("--resume_from_checkpoint", "-r", dest="resume_from_checkpoint", default=False, action="store_true", help="Restart from latest checkpoint.")
 
-    parser.add_argument("--test_checkpoint_iter", type=int, default=21500, help="Path to model to load and test.")
-    parser.add_argument("--test_model_only", type=bool, default=True, help="Only testing the model from the given checkpoint")
+    parser.add_argument("--test_checkpoint_iter", type=int, default=15000, help="Path to model to load and test.")
+    parser.add_argument("--test_model_only", type=bool, default=False, help="Only testing the model from the given checkpoint")
 
     #####################下面的是消融参数##############
     parser.add_argument("--lambdas", type=int, default=[1, 0.5, 0, 0, 0, 0], help="temporal_set")  #1是监督分类loss 2是蒸馏loss
