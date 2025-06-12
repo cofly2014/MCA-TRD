@@ -1,80 +1,62 @@
 import matplotlib
-matplotlib.use('Agg')
-import numpy as np
+matplotlib.use('Agg')  # 在导入 pyplot 之前设置
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.cm as cm
-import matplotlib.ticker as ticker # 导入ticker模块
+import numpy as np
+# 设置参数范围和假设的精度值
+alpha_values = np.arange(0.1, 1.0, 0.1)
 
-# 定义原始的a1、a2参数值（作为标签使用）
-a1_labels = np.array([0.005, 0.05, 0.5, 5])
-a2_labels = np.array([0.005, 0.05, 0.5, 5])
+# 假设的精度数据 - α=0.3时达到峰值
+# HMDB51数据集
+hmdb51_acc = [0.552, 0.556, 0.555, 0.565, 0.567, 0.553, 0.562, 0.549, 0.54]
+# Diving48数据集
+diving48_acc = [0.426, 0.432, 0.432, 0.443, 0.425, 0.438, 0.430, 0.437, 0.430]
+#diving48_acc = [0.426, 0.432, 0.443, 0.432, 0.425, 0.438, 0.430, 0.437, 0.430]
+hmdb51_acc_1shot = [0.372, 0.378, 0.382, 0.377, 0.4003, 0.3828, 0.3988, 0.379, 0.3746]
+diving48_acc_1shot = [0.3228, 0.3196, 0.328, 0.3246, 0.3156, 0.332, 0.3226, 0.33, 0.318]
 
-# 生成等间距的坐标数据（这里假设有4个等间距的坐标点，你可以根据实际需求修改点数）
-num_points = 4
-a1_coords = np.linspace(0, 1, num_points)
-a2_coords = np.linspace(0, 1, num_points)
+# 创建图形
+plt.figure(figsize=(8, 5))
 
-# 生成数据（示例数据，你可以替换为真实数据）
-#hmdb
-acc = np.array([
-    [51.14, 53.20, 52.40, 53.22],
-    [50.18, 54.20, 53.30, 51.96],
-    [50.32, 51.70, 50.36, 50.00],
-    [22.30, 22.72, 28.54, 23.30]
-])
-dataset_name = "HMDB51"
+# 绘制两条曲线
+plt.plot(alpha_values, hmdb51_acc, 'b-s', label='HMDB51-5shot', linewidth=2, markersize=8)
+plt.plot(alpha_values, diving48_acc, 'r-^', label='Diving48-5shot', linewidth=2, markersize=8)
 
-#Diving48
+plt.plot(alpha_values, hmdb51_acc_1shot, 'b--s', label='HMDB51-1shot', linewidth=2, markersize=8)
+plt.plot(alpha_values, diving48_acc_1shot, 'r--^', label='Diving48-1shot', linewidth=2, markersize=8)
 
-acc = np.array([
-    [42.46, 42.90, 42.20, 42.08],
-    [41.14, 43.8, 42.08, 42.04],
-    [41.08, 41.66, 41.24, 40.88],
-    [30.20, 24.24, 26.00, 28.44]
-])
-dataset_name = "Diving48"
+# 标记最高点
+max_hmdb = np.argmax(hmdb51_acc)
+max_diving = np.argmax(diving48_acc)
 
-acc = acc/100
+max_hmdb_1shot = np.argmax(hmdb51_acc_1shot)
+max_diving_1shot = np.argmax(diving48_acc_1shot)
 
-# 创建图形对象
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+plt.scatter(alpha_values[max_hmdb], hmdb51_acc[max_hmdb], color='blue', s=100, zorder=5,  marker='o')
+plt.scatter(alpha_values[max_diving], diving48_acc[max_diving], color='red', s=100, zorder=5, marker='o')
+plt.scatter(alpha_values[max_hmdb_1shot], hmdb51_acc_1shot[max_hmdb_1shot], color='blue', s=100, zorder=5,  marker='o')
+plt.scatter(alpha_values[max_diving_1shot], diving48_acc_1shot[max_diving_1shot], color='red', s=100, zorder=5, marker='o')
 
-# 绘制柱状图，使用渐变色
-xpos, ypos = np.meshgrid(a1_coords, a2_coords)
-#xpos, ypos = np.meshgrid(a2_coords, a1_coords)
-xpos = xpos.flatten()
-ypos = ypos.flatten()
-zpos = np.zeros_like(xpos)
-dx = dy = 0.15 * np.ones_like(zpos)
-dz = acc.flatten()
+# 添加图例和标签
+plt.title('The Accuracy According to α', fontsize=14)
+plt.xlabel('α', fontsize=12)
+plt.ylabel('Recognition Accuracy', fontsize=12)
+plt.legend(fontsize=12)
 
-# 手动设置颜色映射的区间，这里夸大了颜色变化范围
-norm = plt.Normalize(dz.min(), dz.max())
-colors = cm.viridis(norm(dz))
+# 设置坐标轴范围
+plt.xlim(0.05, 0.95)
+plt.ylim(0.30, 0.60)
 
-ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors)
+# 添加网格
+plt.grid(True, linestyle='--', alpha=0.6)
 
-# 设置自定义的轴标签（使用原始提供的标签值）
-ax.set_xlabel('a2', color='blue')
-ax.set_xticks(a1_coords)
-ax.set_xticklabels(a1_labels)
+# 将图例移动到左下角
+#plt.legend(fontsize=12, loc='lower left')
 
-ax.set_ylabel('a1', color='blue')
-ax.set_yticks(a2_coords)
-ax.set_yticklabels(a2_labels)
+# 或者使用 bbox_to_anchor 精确指定位置，例如移动到图形外的右侧中间
+plt.legend(fontsize=10, bbox_to_anchor=(0.99, 0.68), loc='center right', borderaxespad=0.)
 
-ax.set_zlabel('ACC', color='blue')
+# 保存为PDF
+plt.savefig('accuracy_according_to_a.pdf', format='pdf', bbox_inches='tight')
 
-# 创建一个新的Axes来放置颜色条
-cax = fig.add_axes([0.89, 0.1, 0.03, 0.8])
-mappable = cm.ScalarMappable(cmap=cm.viridis, norm=norm)
-mappable.set_array(dz)
-colorbar = fig.colorbar(mappable, cax=cax)
-# 设置颜色条刻度格式为两位小数
-#colorbar.ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
-fig.suptitle("The effect of hyper-parameters in distillation ({})".format(dataset_name))
-plt.tight_layout()
-# 保存图形为PNG文件，你可以修改文件名和路径
-fig.savefig('hyper-parameter-distillation-{}.jpg'.format(dataset_name))
+# 显示图形
+plt.show()

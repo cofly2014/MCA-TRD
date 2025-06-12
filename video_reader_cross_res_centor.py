@@ -104,6 +104,8 @@ class VideoDataset(torch.utils.data.Dataset):
         self.target_test_split = Split()
         self._select_fold_target()
         self.read_dir_target()
+        self.target_domain_centor = torch.ones(8, 3, 224, 224)
+        #self.target_domain_centor = self.build_target_trainingset_centor()
 
     """ return the current split being used """
 
@@ -379,8 +381,39 @@ class VideoDataset(torch.utils.data.Dataset):
                 "real_target_labels": real_target_labels,
                 "batch_class_list": batch_classes,
                 "target_domain_set": target_domain_set,
-                "target_domain_label": target_domain_label
+                "target_domain_label": target_domain_label,
+                "target_domain_centor_g" :self.target_domain_centor
                 }
+
+    def build_target_trainingset_centor(self):
+        bc = 0
+        c = self.get_train_or_test_db_target(is_train=True)  # 这个方法内部 已经确定了 是选择的是meta-training还是meta-testing
+        classes = c.get_unique_classes()  # 其实就是self.gt_a_list 中 不重复元素的列表
+        class_numbers = []
+        for single_class in classes:
+            class_numbers.append(c.get_num_videos_for_class(single_class))
+
+        target_domain_centor= torch.zeros(8, 3, 224, 224)
+
+        select_video_numbers = list(range(0, len(self.target_train_split)))
+
+        for i, select_video_number in enumerate(select_video_numbers):
+            sum_so_far = 0
+            for j, class_number in enumerate(class_numbers):
+                if select_video_number < sum_so_far + class_number:
+                    bc = j
+                    break
+                sum_so_far += class_number
+
+            idx = select_video_number - sum_so_far
+            # print("bc: {} ".format(bc))
+            c = self.get_train_or_test_db_target(is_train=True)
+
+            vid, vid_id = self.get_seq(c, classes[bc], idx)
+            target_domain_centor = target_domain_centor + vid
+        target_domain_centor = target_domain_centor /  len(self.target_train_split)
+
+        return target_domain_centor
 
     def build_target_trainingset(self):
         # 获得target domain中的数据,进行采样,只有在meta tranining meta traning阶段构造unlabled的target domain数据 用来训练

@@ -1,6 +1,5 @@
 import os
-#os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5"
 import torch
 import numpy as np
 import argparse
@@ -15,7 +14,7 @@ import video_reader_cross_res as  video_reader
 import random
 import logging
 
-from models.base.cross_domain_fsar_resnet_multi import CROSS_DOMAIN_FSAR
+from models.base.d830.cross_domain_fsar_sp_dsn import DSN_CROSS_FSAR
 
 def setup_logger(name, log_file, level=logging.INFO):
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
@@ -37,7 +36,7 @@ eval_logger = setup_logger('Evaluation_accuracy', 'runs_trms/eval_output.log')
 # setting up seeds
 manualSeed = random.randint(1, 10000)
 #manualSeed = 1888
-manualSeed = 1896
+manualSeed = 2025
 print("Random Seed: ", manualSeed)
 np.random.seed(manualSeed)
 random.seed(manualSeed)
@@ -58,13 +57,13 @@ def parse_command_line():
     parser.add_argument("--learning_rate", "-lr", type=float, default=0.001, help="Learning rate.")
     parser.add_argument("--tasks_per_batch", type=int, default=16, help="Number of tasks between parameter optimizations.")
     # 经常需要修改
-    parser.add_argument("--training_iterations", "-i", type=int, default=120020, help="Number of meta-training iterations.")
+    parser.add_argument("--training_iterations", "-i", type=int, default=32020, help="Number of meta-training iterations.")
     # 经常需要修改
     parser.add_argument("--num_test_tasks", type=int, default=1000, help="number of random tasks to test on.")
     parser.add_argument('--test_iters', nargs='+', type=int, default=[20000], help='iterations to test at. Default is for ssv2 otam split.')
 
     #元训练阶段一个episode中抽样多少个未标记的target doamin的样本
-    parser.add_argument("--target_unlabeled_num", type=int, default=25, help="Way of each task.")
+    parser.add_argument("--target_unlabeled_num", type=int, default=50, help="Way of each task.")
 
     parser.add_argument("--way", type=int, default=5, help="Way of each task.")
     parser.add_argument("--shot", type=int, default=5, help="Shots per class.")
@@ -80,10 +79,9 @@ def parse_command_line():
     parser.add_argument("--save_freq", type=int, default=500, help="Number of iterations between checkpoint saves.")
     parser.add_argument("--img_size", type=int, default=224, help="Input image size to the CNN after cropping.")
 
-    parser.add_argument("--scratch", choices=["bc", "bp", "new"], default="bp", help="directory containing dataset, splits, and checkpoint saves.")
     # 经常需要修改
     parser.add_argument("--gpus_use", default=[0, 1, 2, 3], help="GPUs No. to split the ResNet over")
-    parser.add_argument("--num_gpus", type=int, default=4, help="Number of GPUs to split the ResNet over")
+    parser.add_argument("--num_gpus", type=int, default=3, help="Number of GPUs to split the ResNet over")
 
     parser.add_argument("--debug_loader", default=False, action="store_true", help="Load 1 vid per class for debugging")
     # 可能需要修改 不同的split这里的编号不一样
@@ -91,51 +89,29 @@ def parse_command_line():
     parser.add_argument('--sch', nargs='+', type=int, help='iters to drop learning rate', default=[1600000])
     #####################数据集和pt保存路径#############
     #parser.add_argument("--dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf"], default="hmdb", help="Dataset to use.")
-    parser.add_argument("--source_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="kinetics", help="Dataset to use.")
-    parser.add_argument("--target_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48", "rareAct"], default="ssv2", help="Dataset to use.")
+    parser.add_argument("--source_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48"], default="kinetics", help="Dataset to use.")
+    parser.add_argument("--target_dataset", choices=["ssv2", "ssv2_cmn", "kinetics", "hmdb", "ucf", "diving48"], default="hmdb", help="Dataset to use.")
 
-    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_ssv2/", help="Directory to save checkpoint to.")
-    parser.add_argument("--test_model_path", "-m", default="./checkpoint_ssv2/", help="Path to model to load and test.")
+    parser.add_argument("--checkpoint_dir", "-c", default="./checkpoint_hmdb/", help="Directory to save checkpoint to.")
+    parser.add_argument("--test_model_path",  "-m", default="./checkpoint_hmdb/", help="Path to model to load and test.")
 
-    parser.add_argument("--resume_checkpoint_iter", type=int, default=0, help="Path to model to resume.")
+    parser.add_argument("--resume_checkpoint_iter", type=int, default=1000, help="Path to model to resume.")
     parser.add_argument("--resume_from_checkpoint", "-r", dest="resume_from_checkpoint", default=False, action="store_true", help="Restart from latest checkpoint.")
 
-    parser.add_argument("--test_checkpoint_iter", type=int, default=15000, help="Path to model to load and test.")
-    parser.add_argument("--test_model_only", type=bool, default=False, help="Only testing the model from the given checkpoint")
+    parser.add_argument("--test_checkpoint_iter", type=int, default=18000, help="Path to model to load and test.")
+    parser.add_argument("--test_model_only", type=bool, default=True, help="Only testing the model from the given checkpoint")
 
     #####################下面的是消融参数##############
     parser.add_argument("--lambdas", type=int, default=[1, 0.5, 0, 0, 0, 0], help="temporal_set")  #1是监督分类loss 2是蒸馏loss
 
     parser.add_argument("--seq_len", type=int, default=8, help="Frames per video.")
-    parser.add_argument('--sub_seq_len', type=int, default=4, help='the length of sub sequence')
-    parser.add_argument('--sub_seq_num', type=int, default=10, help='the length of sub sequence')
 
     parser.add_argument('--start_cross', type=int, default=0, help='the time to start meta-learning step2')  #10000
 
     parser.add_argument('--class_num', type=int, default=64, help='the number of class catetories in the training stage')
 
-    args = parser.parse_args()
 
-    # 数据集存储在不同的地方 移动硬盘，服务器，本地PC
-    if args.scratch == "bc":
-        args.num_gpus = 2
-        args.scratch = "./"
-        args.scratch_data = "/mnt/mydata/video-mini-frames/"
-    elif args.scratch == "bp":
-        args.num_gpus = 3
-        # this is low becuase of RAM constraints for the data loader
-        args.num_workers = 3
-        args.scratch = "./"
-        args.scratch_data = "/home/guofei/mydata/video-mini-frames/"
-        #args.scratch_data = "/local/wangq/data/video-mini-frames/"
-        args.unlabel_scratch = "./"
-        #args.unlabel_scratch_data = "/home/guofei/mydata/video-mini-frames/"
-        args.unlabel_scratch_data = "/local/wangq/data/video-mini-frames/"
-    elif args.scratch == "new":
-        args.num_workers = 2
-        args.num_gpus = 1
-        args.scratch = "./"
-        args.scratch_data = "E:/mydata/video-mini-frames/"
+    args = parser.parse_args()
 
     if args.checkpoint_dir == None:
         print("need to specify a checkpoint dir")
@@ -149,6 +125,7 @@ def parse_command_line():
     else:
         args.trans_linear_in_dim = 512
     #############################################################################################
+    args.scratch = "./"
     #源域
     if args.source_dataset == "kinetics":
         args.trainlist = os.path.join(args.scratch, "splits/kinetics_CMN")
@@ -258,7 +235,7 @@ class Learner:
         self.optimizer.zero_grad()
 
     def init_model(self):
-        model = CROSS_DOMAIN_FSAR(self.args)
+        model = DSN_CROSS_FSAR(self.args)
         model = model.cuda()
         if self.args.num_gpus > 1:
             model.distribute_model()
@@ -306,7 +283,6 @@ class Learner:
             torch.set_grad_enabled(True)
             print("start to train iteration: " + str(iteration))
             task_loss, task_accuracy = self.train_task(task_dict, iteration)
-            print("finish to train iteration: " + str(iteration))
             train_accuracies.append(task_accuracy)
             losses.append(task_loss)
             #optimize  每tasks_per_batch次iteration进行一次网络参数更新, 模型开始新一轮的迭代
@@ -334,6 +310,7 @@ class Learner:
                 accuracy_dict = self.test(iteration + 1)
                 print(accuracy_dict)
                 self.test_accuracies.print(self.logfile, accuracy_dict)
+            print("finish to train iteration: " + str(iteration))
 
     def train_task(self, task_dict, iteration):
         # 输入是task_dict 由video_reader读取得到的对象， 输出 support样本, query样本, support labels, query labels,  real_target_labels
@@ -343,12 +320,13 @@ class Learner:
             task_dict[k] = task_dict[k][0].cuda()
         model_dict = self.model(task_dict, iteration)
 
-        class_logits = model_dict['class_logits']  #监督学习
-        meta_logits = model_dict['meta_logits']   #meta学习
 
-        self_loss = model_dict['self_logits']
-        cross_loss = model_dict['cross_logits']
-        reconstruct_distance_loss = model_dict['reconstruct_distance']
+        class_logits = model_dict['class_logits']  # 监督学习
+        meta_logits = model_dict['meta_logits']  # meta学习
+
+        t_irre_pre_loss = model_dict['t_irre_pre_loss']
+        t_spec_pre_loss = model_dict['t_spec_pre_loss']
+        t_domain_recon_loss = model_dict['t_domain_recon_loss']
 
         task_accuracy = self.accuracy_fn(meta_logits, target_labels)
         print("-> meta task_accuracy:{}".format(task_accuracy))
@@ -364,16 +342,14 @@ class Learner:
         meta_target_loss = self.loss(meta_target_logits, task_dict["target_labels"].long(), "cuda") / self.args.tasks_per_batch
 
         lambdas = self.args.lambdas
-        # lambdas=[2, 1, 0.5, 0.3, 0.3, 0.5, 0.5,0]
         if iteration <= self.args.start_cross:
+            lambdas = [1, 0, 0, 0.05, 0.1]
             lambdas = [1, 0, 0, 0, 0]
         else:
-            lambdas = [1, 1, 0.1, 0.05, 0.05]
+            lambdas = [1, 1,  0.5, 0.5, 1]
+            #lambdas = [1, 1, 0, 0, 0]
         task_loss_total = lambdas[0] * superviesed_class_loss + \
-                          lambdas[1] * meta_target_loss + \
-                          lambdas[2] * reconstruct_distance_loss + \
-                          lambdas[3] * self_loss + \
-                          lambdas[4] * cross_loss
+                          lambdas[1] * meta_target_loss + lambdas[2]*t_irre_pre_loss + lambdas[3]*t_spec_pre_loss  + lambdas[4]*t_domain_recon_loss
 
         task_loss_total.backward(retain_graph=False)
 
@@ -443,7 +419,7 @@ class Learner:
                 task_dict[k] = task_dict[k][0].cuda()
         model_dict = self.model.forward_test(task_dict)
 
-        target_logits = model_dict['dis_logits']
+        target_logits = model_dict['meta_logits']
         target_logits_total = target_logits
         task_accuracy = self.accuracy_fn(target_logits_total, target_labels)
         print("--> task_accuracy:{}".format(task_accuracy))
